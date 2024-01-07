@@ -3,6 +3,7 @@ using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using H;
 using HarmonyLib;
+using JetBrains.Annotations;
 using UnityEngine;
 
 namespace HC_HGaugeAndSpeedCtrl
@@ -13,7 +14,7 @@ namespace HC_HGaugeAndSpeedCtrl
     {
         public const string PluginName = "HC_HGaugeAndSpeedCtrl";
         public const string GUID = "HC_HGaugeAndSpeedCtrl";
-        public const string PluginVersion = "1.1.1";
+        public const string PluginVersion = "1.1.2";
         //Instances
         public static HGaugeAndSpeedCtrl hGaugeInstance;
         public static HGaugeCtrlComponent hGaugeComponent;
@@ -96,6 +97,7 @@ namespace HC_HGaugeAndSpeedCtrl
             private bool fFeelAnimationProc;
             private bool mFeelAnimation;
             private bool mFeelAnimationProc;
+            private bool mFeelDuringfFaintness;
             private bool isMasturbation;
             private bool flag;
             private string _playAnimation;
@@ -120,6 +122,22 @@ namespace HC_HGaugeAndSpeedCtrl
                     case "2x HJ Lick":
                         return false;
                     case "2x HJ Lick (Alt)":
+                        return false;
+                    default: return true;
+                }
+            }
+            private bool mFeelDuringfFaintnessShouldProc(string animationName) {
+                switch (animationName)
+                {
+                    case "Sitting 69":
+                        return false;
+                    case "69":
+                        return false;
+                    case "BJ Masturbation":
+                        return false;
+                    case "Mutual Caress":
+                        return false;
+                    case "Cunnilingus HJ":
                         return false;
                     default: return true;
                 }
@@ -266,35 +284,11 @@ namespace HC_HGaugeAndSpeedCtrl
                 switch (hScene._mode)
                 {
                     case 2: //Sonyu
-                        {
                         fFeelAnimation = true;
                         if (hScene.CtrlFlag.IsFaintness)
-                        {
-                            switch (info.NameAnimation)
-                            {
-                                case "Sitting 69":
-                                    mFeelAnimation = false;
-                                        break;
-                                case "69":
-                                    mFeelAnimation = false;
-                                    break;
-                                case "BJ Masturbation":
-                                     mFeelAnimation = false;
-                                      break;
-                                case "Mutual Caress":
-                                    mFeelAnimation = false;
-                                    break;
-                                case "Cunnilingus HJ":
-                                    mFeelAnimation = false;
-                                    break;
-                                default:
-                                    mFeelAnimation = true;
-                                    break;
-                            }
-                        }
+                            mFeelAnimation = mFeelDuringfFaintnessShouldProc(info.NameAnimation);
                         else mFeelAnimation = true;
                         break;
-                    }
                     case 6: //Les
                         fFeelAnimation = true;
                         mFeelAnimation = false;
