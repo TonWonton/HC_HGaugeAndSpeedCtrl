@@ -1,11 +1,8 @@
 ﻿using BepInEx;
 using BepInEx.Configuration;
-using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
 using H;
 using HarmonyLib;
-using Il2CppInterop.Runtime.Injection;
-using Il2CppSystem.Runtime.Remoting.Messaging;
 using UnityEngine;
 
 namespace HC_HGaugeAndSpeedCtrl
