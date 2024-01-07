@@ -3,7 +3,6 @@ using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using H;
 using HarmonyLib;
-using JetBrains.Annotations;
 using UnityEngine;
 
 namespace HC_HGaugeAndSpeedCtrl
