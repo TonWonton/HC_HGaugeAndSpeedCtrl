@@ -13,7 +13,7 @@ namespace HC_HGaugeAndSpeedCtrl
     {
         public const string PluginName = "HC_HGaugeAndSpeedCtrl";
         public const string GUID = "HC_HGaugeAndSpeedCtrl";
-        public const string PluginVersion = "1.1.0";
+        public const string PluginVersion = "1.1.1";
         //Instances
         public static HGaugeAndSpeedCtrl hGaugeInstance;
         public static HGaugeCtrlComponent hGaugeComponent;
