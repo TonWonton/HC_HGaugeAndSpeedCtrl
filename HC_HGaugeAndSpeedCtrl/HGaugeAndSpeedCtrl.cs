@@ -96,6 +96,7 @@ namespace HC_HGaugeAndSpeedCtrl
             private bool fFeelAnimationProc;
             private bool mFeelAnimation;
             private bool mFeelAnimationProc;
+            private bool isMasturbation;
             private bool flag;
             private string _playAnimation;
             private bool maleFinishing;
@@ -139,7 +140,13 @@ namespace HC_HGaugeAndSpeedCtrl
                 {
                     if (fFeelAnimationProc)
                     {
-                        if (!hScene.CtrlFlag.IsGaugeHit)
+                        if (isMasturbation)
+                        {   //If masturbation
+                            if (!hScene.CtrlFlag.IsGaugeHit)
+                                hScene.CtrlFlag.Feel_f += Time.deltaTime * gaugeIncreaseF * (hScene.CtrlFlag.Speed + 0.5f);
+                            else hScene.CtrlFlag.Feel_f += Time.deltaTime * gaugeHitIncreaseF * (hScene.CtrlFlag.Speed + 0.5f);
+                        }
+                        else if (!hScene.CtrlFlag.IsGaugeHit)
                         {   //If normal female gauge
                             if (hScene.CtrlFlag.LoopType == 1)
                                 hScene.CtrlFlag.Feel_f += Time.deltaTime * gaugeIncreaseF * (hScene.CtrlFlag.Speed - 0.5f);
@@ -173,7 +180,13 @@ namespace HC_HGaugeAndSpeedCtrl
                 {
                     if (fFeelAnimationProc)
                     {
-                        if (!hScene.CtrlFlag.IsGaugeHit)
+                        if (isMasturbation)
+                        {   //If masturbation
+                            if (!hScene.CtrlFlag.IsGaugeHit)
+                                hScene.CtrlFlag.Feel_f += Time.deltaTime * gaugeIncreaseF;
+                            else hScene.CtrlFlag.Feel_f += Time.deltaTime * gaugeHitIncreaseF;
+                        }
+                        else if (!hScene.CtrlFlag.IsGaugeHit)
                         {   //If normal female gauge
                             if (hScene.CtrlFlag.LoopType == 1)
                                 hScene.CtrlFlag.Feel_f += Time.deltaTime * gaugeIncreaseF;
@@ -249,6 +262,7 @@ namespace HC_HGaugeAndSpeedCtrl
 
             private void CheckPositionFeel(HScene.AnimationListInfo info)
             {
+                isMasturbation = false;
                 switch (hScene._mode)
                 {
                     case 2: //Sonyu
@@ -264,6 +278,9 @@ namespace HC_HGaugeAndSpeedCtrl
                                 case "69":
                                     mFeelAnimation = false;
                                     break;
+                                case "BJ Masturbation":
+                                     mFeelAnimation = false;
+                                      break;
                                 case "Mutual Caress":
                                     mFeelAnimation = false;
                                     break;
@@ -303,6 +320,7 @@ namespace HC_HGaugeAndSpeedCtrl
                     case 4: //Masturbation
                         fFeelAnimation = true;
                         mFeelAnimation = false;
+                        isMasturbation = true;
                         break;
                     case 3: //Spanking
                         fFeelAnimation = true;
