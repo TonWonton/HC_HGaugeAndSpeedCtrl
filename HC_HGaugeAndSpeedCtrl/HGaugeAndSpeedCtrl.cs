@@ -438,21 +438,32 @@ namespace HC_HGaugeAndSpeedCtrl
                 {
                     if (hGaugeComponent.clickChangeSpeed == true)
                         if (HGaugeAndSpeedCtrl.KeyO.Value)
-                            switch (hGaugeComponent.hScene.CtrlFlag.LoopType)
+                        {
+                            if (hGaugeComponent.isMasturbation)
                             {
-                                case 0:
-                                    hGaugeComponent.hScene.CtrlFlag.Speed += 1.001f;
-                                    break;
-                                case 1:
-                                    hGaugeComponent.hScene.CtrlFlag.Speed -= 1.001f;
-                                    break;
-                                case 2:
-                                    if (hGaugeComponent.hScene.CtrlFlag.Speed > 0.5f)
-                                        hGaugeComponent.hScene.CtrlFlag.Speed = 0f;
-                                    else
-                                        hGaugeComponent.hScene.CtrlFlag.Speed = 1f;
-                                    break;
+                                if (hGaugeComponent.hScene.CtrlFlag.Speed > 0.5f)
+                                    hGaugeComponent.hScene.CtrlFlag.Speed = 0f;
+                                else hGaugeComponent.hScene.CtrlFlag.Speed = 1f;
                             }
+                            else
+                            {
+                                switch (hGaugeComponent.hScene.CtrlFlag.LoopType)
+                                {
+                                    case 0:
+                                        hGaugeComponent.hScene.CtrlFlag.Speed += 1.001f;
+                                        break;
+                                    case 1:
+                                        hGaugeComponent.hScene.CtrlFlag.Speed -= 1.001f;
+                                        break;
+                                    case 2:
+                                        if (hGaugeComponent.hScene.CtrlFlag.Speed > 0.5f)
+                                            hGaugeComponent.hScene.CtrlFlag.Speed = 0f;
+                                        else
+                                            hGaugeComponent.hScene.CtrlFlag.Speed = 1f;
+                                        break;
+                                }
+                            }
+                        }
                 }
 
                 [HarmonyPostfix]
