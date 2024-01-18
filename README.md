@@ -20,7 +20,7 @@ https://github.com/ManlyMarco/HC-HF_Patch
 
 ## Installation
 1. Install correct versions of prerequisites
-2. Download from releases
+2. [Download from releases](https://github.com/TonWonton/HC_HGaugeAndSpeedCtrl/releases)
 3. Extract into game folder
 
 ## Description
