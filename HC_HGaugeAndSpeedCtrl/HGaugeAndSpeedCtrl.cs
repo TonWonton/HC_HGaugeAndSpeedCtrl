@@ -1,4 +1,7 @@
-﻿using BepInEx;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Unity.IL2CPP;
 using H;
@@ -13,7 +16,7 @@ namespace HC_HGaugeAndSpeedCtrl
     {
         public const string PluginName = "HC_HGaugeAndSpeedCtrl";
         public const string GUID = "HC_HGaugeAndSpeedCtrl";
-        public const string PluginVersion = "1.1.2";
+        public const string PluginVersion = "1.2.0";
         //Instances
         public static HGaugeAndSpeedCtrl hGaugeInstance;
         public static HGaugeCtrlComponent hGaugeComponent;
@@ -35,12 +38,54 @@ namespace HC_HGaugeAndSpeedCtrl
         public static ConfigEntry<float> maxLoopSpeedS;
         public static ConfigEntry<float> minLoopSpeedO;
         public static ConfigEntry<float> maxLoopSpeedO;
+        //Priority entries
+        public static ConfigEntry<PriorityEnum> priorityEnum;
+        public static ConfigEntry<PriorityEnumHoushi> priorityEnumHoushi;
+        public static int[] priority = new int[3];
+        public static int[] priorityHoushi = new int[3];
+        public static Dictionary<int, Action> priorityDictionary;
+        //Logging
+        //public static ManualLogSource log = BepInEx.Logging.Logger.CreateLogSource(PluginName);
+        public enum PriorityEnum
+        {
+            [DescriptionAttribute("Together, inside, outside")]
+            Entry0 = 0,
+            [DescriptionAttribute("Together, outside, inside")]
+            Entry1 = 1,
+            [DescriptionAttribute("Inside, together, outside")]
+            Entry2 = 2,
+            [DescriptionAttribute("Inside, outside, together")]
+            Entry3 = 3,
+            [DescriptionAttribute("Outside, together, inside")]
+            Entry4 = 4,
+            [DescriptionAttribute("Outside, inside, together")]
+            Entry5 = 5,
+        }
+        public enum PriorityEnumHoushi
+        {
+            [DescriptionAttribute("Swallow, spit, outside")]
+            Entry0 = 0,
+            [DescriptionAttribute("Swallow, outside, spit")]
+            Entry1 = 1,
+            [DescriptionAttribute("Spit, swallow, outside")]
+            Entry2 = 2,
+            [DescriptionAttribute("Spit, outside, swallow")]
+            Entry3 = 3,
+            [DescriptionAttribute("Outside, swallow, spit")]
+            Entry4 = 4,
+            [DescriptionAttribute("Outside, spit, swallow")]
+            Entry5 = 5,
+        }
 
         public override void Load()
         {
             //Climax together
             ClimaxTFemale = Config.Bind("Climax", "Female climax together", true, "Climax Together have priority when girl cums");
-            ClimaxTMale = Config.Bind("Climax", "Male auto climax", true, "Priority:\nBoth(together, inside, outside)\nMale solo(swallow, spit, outside)");
+            ClimaxTMale = Config.Bind("Climax", "Male auto climax", true, "If enabled, male will auto climax according to priority");
+            priorityEnum = Config.Bind("Climax", "Priority", PriorityEnum.Entry0, "Change orgasm priority when both can orgasm");
+            priorityEnumHoushi = Config.Bind("Climax", "Priority houshi (male foreplay)", PriorityEnumHoushi.Entry0, "Change orgasm priority for houshi (male foreplay)");
+            priorityEnum.SettingChanged += (sender, args) => SetPriority();
+            priorityEnumHoushi.SettingChanged += (sender, args) => SetPriorityHoushi();
             //Gauge speeds and scaling
             Speed = Config.Bind("Gauge", "Toggle speed scaling", false, "Gauge increase will scale with speed if enabled\nThis is independant from animation speed\nSlowest loop speed = 50% on current gauge speed\nFastest loop speed = 150% of current gauge speed");
             speedScale = Config.Bind("Gauge", "Speed scaling multiplier", 1f, new ConfigDescription("How much speed affects the gauge", new AcceptableValueRange<float>(0.1f, 4f)));
@@ -72,20 +117,72 @@ namespace HC_HGaugeAndSpeedCtrl
             maxLoopSpeedO.SettingChanged += (sender, args) => HGaugeCtrlComponent.ApplyLoopSpeeds();
             //Set instance and patch
             hGaugeInstance = this;
+            //BepInEx.Logging.Logger.Sources.Add(log);
+            SetPriority();
+            SetPriorityHoushi();
             Harmony.CreateAndPatchAll(typeof(HGaugeCtrlComponent.Hooks), GUID);
+        }
+
+        private static void SetPriority()
+        {
+            switch (priorityEnum.Value)
+            {
+                case PriorityEnum.Entry0:
+                    priority = new int[3] { 5, 2, 1 };
+                    break;
+                case PriorityEnum.Entry1:
+                    priority = new int[3] { 5, 1, 2 };
+                    break;
+                case PriorityEnum.Entry2:
+                    priority = new int[3] { 2, 5, 1 };
+                    break;
+                case PriorityEnum.Entry3:
+                    priority = new int[3] { 2, 1, 5 };
+                    break;
+                case PriorityEnum.Entry4:
+                    priority = new int[3] { 1, 5, 2 };
+                    break;
+                case PriorityEnum.Entry5:
+                    priority = new int[3] { 1, 2, 5 };
+                    break;
+            }
+        }
+
+        private static void SetPriorityHoushi()
+        {
+            switch (priorityEnumHoushi.Value)
+            {
+                case PriorityEnumHoushi.Entry0:
+                    priorityHoushi = new int[3] { 3, 4, 1 };
+                    break;
+                case PriorityEnumHoushi.Entry1:
+                    priorityHoushi = new int[3] { 3, 1, 4 };
+                    break;
+                case PriorityEnumHoushi.Entry2:
+                    priorityHoushi = new int[3] { 4, 3, 1 };
+                    break;
+                case PriorityEnumHoushi.Entry3:
+                    priorityHoushi = new int[3] { 4, 1, 3 };
+                    break;
+                case PriorityEnumHoushi.Entry4:
+                    priorityHoushi = new int[3] { 1, 3, 4 };
+                    break;
+                case PriorityEnumHoushi.Entry5:
+                    priorityHoushi = new int[3] { 1, 4, 3 };
+                    break;
+            }
         }
 
         public class HGaugeCtrlComponent : MonoBehaviour
         {
             //Instances
             private HScene hScene;
-            private HSceneSprite hSceneSprite;
+            public HSceneSprite hSceneSprite;
             private HScene.AnimationListInfo _info;
             //System
             private bool pausedEnabledProc;
             private float paused;
             private float _isDoubleClick;
-            private bool clickChangeSpeed;
             //Gauge speeds
             private static float gaugeIncreaseF;
             private static float gaugeHitIncreaseF;
@@ -96,14 +193,13 @@ namespace HC_HGaugeAndSpeedCtrl
             private bool fFeelAnimationProc;
             private bool mFeelAnimation;
             private bool mFeelAnimationProc;
-            private bool mFeelDuringfFaintness;
             private bool isMasturbation;
             private bool flag;
             private string _playAnimation;
-            private bool maleFinishing;
             private bool[] buttonList;
-            private bool pausedEnabledShouldProc() {
-                return paused == 0f && HGaugeAndSpeedCtrl.Speed.Value;
+            //Bool proc methods
+            private bool pausedEnabledShouldProc() { //Speed scale toggle also included here for optimization
+                return paused == 0f && Speed.Value;
             }
             private bool fFeelAnimationShouldProc() {
                 return fFeelAnimation && flag && !hScene.CtrlFlag.StopFeelFemale;
@@ -147,7 +243,7 @@ namespace HC_HGaugeAndSpeedCtrl
                 if (Input.GetMouseButtonDown(1) && _isDoubleClick <= 0f) _isDoubleClick = 0.4f; //Set double click timer
                 else if (Input.GetMouseButtonDown(1) && _isDoubleClick > 0f) //Check for new click while timer active
                 {
-                    clickChangeSpeed = true;
+                    KeybindChangeSpeed();
                     _isDoubleClick = 0f;
                 }
                 else if (_isDoubleClick > 0f) _isDoubleClick -= Time.deltaTime; //If no click decrease timer
@@ -192,7 +288,7 @@ namespace HC_HGaugeAndSpeedCtrl
                         }
                     }
                 }
-                //If speed scaling disabled
+                //If speed scaling disabled and not paused
                 else if (paused == 0f)
                 {
                     if (fFeelAnimationProc)
@@ -233,11 +329,18 @@ namespace HC_HGaugeAndSpeedCtrl
                     }
                 }
             }
-            
-            void LateUpdate()
+
+            private void SetPriorityDictionaries()
             {
-                if (clickChangeSpeed == true)
-                    clickChangeSpeed = false;
+                //Bind active finish button index to action
+                priorityDictionary = new Dictionary<int, Action>()
+                {
+                    { 5, hGaugeComponent.hSceneSprite.OnClickFinishSame },
+                    { 2, hGaugeComponent.hSceneSprite.OnClickFinishInSide },
+                    { 1, hGaugeComponent.hSceneSprite.OnClickFinishOutSide },
+                    { 3, hGaugeComponent.hSceneSprite.OnClickFinishDrink },
+                    { 4, hGaugeComponent.hSceneSprite.OnClickFinishVomit }
+                };
             }
 
             public static void SetGaugeSpeed()
@@ -258,23 +361,9 @@ namespace HC_HGaugeAndSpeedCtrl
                     gaugeIncreaseM = 0.03f * gaugeSpeedMultiplierM.Value;
                     gaugeHitIncreaseM = 0.03f * gaugeHitSpeedMultiplierM.Value;
                 }
+                //When changing speed settings, update pausedEnabledProc
                 if (hGaugeComponent != null)
                     hGaugeComponent.pausedEnabledProc = hGaugeComponent.pausedEnabledShouldProc();
-            }
-
-            public static void ApplyLoopSpeeds()
-            {
-                //Apply custom loop speeds
-                if (hGaugeComponent != null)
-                    hGaugeComponent.hScene.CtrlFlag.LoopSpeeds = new HSceneFlagCtrl.LoopSpeed()
-                    {
-                        MinLoopSpeedW = minLoopSpeedW.Value,
-                        MaxLoopSpeedW = maxLoopSpeedW.Value,
-                        MinLoopSpeedS = minLoopSpeedS.Value,
-                        MaxLoopSpeedS = maxLoopSpeedS.Value,
-                        MinLoopSpeedO = minLoopSpeedO.Value,
-                        MaxLoopSpeedO = maxLoopSpeedO.Value
-                    };
             }
 
             private void CheckPositionFeel(HScene.AnimationListInfo info)
@@ -284,9 +373,7 @@ namespace HC_HGaugeAndSpeedCtrl
                 {
                     case 2: //Sonyu
                         fFeelAnimation = true;
-                        if (hScene.CtrlFlag.IsFaintness)
-                            mFeelAnimation = mFeelDuringfFaintnessShouldProc(info.NameAnimation);
-                        else mFeelAnimation = true;
+                        mFeelAnimation = true;
                         break;
                     case 6: //Les
                         fFeelAnimation = true;
@@ -322,6 +409,53 @@ namespace HC_HGaugeAndSpeedCtrl
                 }
             }
 
+            public static void ApplyLoopSpeeds()
+            {
+                //Apply custom loop speeds
+                if (hGaugeComponent != null)
+                    hGaugeComponent.hScene.CtrlFlag.LoopSpeeds = new HSceneFlagCtrl.LoopSpeed()
+                    {
+                        MinLoopSpeedW = minLoopSpeedW.Value,
+                        MaxLoopSpeedW = maxLoopSpeedW.Value,
+                        MinLoopSpeedS = minLoopSpeedS.Value,
+                        MaxLoopSpeedS = maxLoopSpeedS.Value,
+                        MinLoopSpeedO = minLoopSpeedO.Value,
+                        MaxLoopSpeedO = maxLoopSpeedO.Value
+                    };
+            }
+
+            private void KeybindChangeSpeed()
+            {
+                //Changes speed when keybind is pressed
+                if (HGaugeAndSpeedCtrl.KeyO.Value)
+                {
+                    if (hGaugeComponent.isMasturbation)
+                    {
+                        if (hGaugeComponent.hScene.CtrlFlag.Speed > 0.5f)
+                            hGaugeComponent.hScene.CtrlFlag.Speed = 0f;
+                        else hGaugeComponent.hScene.CtrlFlag.Speed = 1f;
+                    }
+                    else
+                    {
+                        switch (hGaugeComponent.hScene.CtrlFlag.LoopType)
+                        {
+                            case 0:
+                                hGaugeComponent.hScene.CtrlFlag.Speed += 1.001f;
+                                break;
+                            case 1:
+                                hGaugeComponent.hScene.CtrlFlag.Speed -= 1.001f;
+                                break;
+                            case 2:
+                                if (hGaugeComponent.hScene.CtrlFlag.Speed > 0.5f)
+                                    hGaugeComponent.hScene.CtrlFlag.Speed = 0f;
+                                else
+                                    hGaugeComponent.hScene.CtrlFlag.Speed = 1f;
+                                break;
+                        }
+                    }
+                }
+            }
+
             public static class Hooks
             {
                 [HarmonyPostfix]
@@ -332,9 +466,8 @@ namespace HC_HGaugeAndSpeedCtrl
                     hGaugeComponent = hGaugeInstance.AddComponent<HGaugeCtrlComponent>();
                     hGaugeComponent.hScene = __instance;
                     hGaugeComponent.hSceneSprite = hGaugeComponent.hScene._sprite;
-                    //Calculate and set gauge increase rates
-                    hGaugeComponent.hScene.CtrlFlag.SpeedGuageRate = 0f;
-                    HGaugeCtrlComponent.SetGaugeSpeed();
+                    hGaugeComponent.SetPriorityDictionaries();
+                    SetGaugeSpeed();
                     hGaugeComponent.pausedEnabledProc = hGaugeComponent.pausedEnabledShouldProc();
                 }
 
@@ -342,7 +475,9 @@ namespace HC_HGaugeAndSpeedCtrl
                 [HarmonyPatch(typeof(HSceneFlagCtrl), "Start")]
                 public static void HSceneFlagCtrlStartHook()
                 {
-                    HGaugeCtrlComponent.ApplyLoopSpeeds();
+                    //Link priority to action and set gauge + animation speeds
+                    hGaugeComponent.hScene.CtrlFlag.SpeedGuageRate = 0f;
+                    ApplyLoopSpeeds();
                 }
 
                 [HarmonyPostfix]
@@ -355,12 +490,14 @@ namespace HC_HGaugeAndSpeedCtrl
                 [HarmonyPatch(typeof(Houshi), "SetPlay")]
                 public static void SetPlayHook(string playAnimation)
                 {
+                    //Get animation name and flags, then check if gauge increase should proc
                     hGaugeComponent._playAnimation = playAnimation;
                     hGaugeComponent.flag = (hGaugeComponent._playAnimation == "WLoop" || hGaugeComponent._playAnimation == "D_WLoop" ||
                                             hGaugeComponent._playAnimation == "MLoop" || hGaugeComponent._playAnimation == "D_MLoop" ||
                                             hGaugeComponent._playAnimation == "OLoop" || hGaugeComponent._playAnimation == "D_OLoop" ||
                                             hGaugeComponent._playAnimation == "SLoop" || hGaugeComponent._playAnimation == "D_SLoop");
-                    hGaugeComponent.CheckPositionFeel(hGaugeComponent._info);
+                    if (hGaugeComponent.hScene.CtrlFlag.IsFaintness && hGaugeComponent.hScene._mode == 2)
+                        hGaugeComponent.mFeelAnimation = hGaugeComponent.mFeelDuringfFaintnessShouldProc(hGaugeComponent._info.NameAnimation);
                     hGaugeComponent.fFeelAnimationProc = hGaugeComponent.fFeelAnimationShouldProc();
                     hGaugeComponent.mFeelAnimationProc = hGaugeComponent.mFeelAnimationShouldProc();
                 }
@@ -369,107 +506,50 @@ namespace HC_HGaugeAndSpeedCtrl
                 [HarmonyPatch(typeof(HScene), "ChangeModeCtrl")]
                 public static void ChangeModeCtrlHook(HScene.AnimationListInfo info)
                 {
+                    //CheckPositionFeel on position change
                     hGaugeComponent._info = info;
+                    hGaugeComponent.CheckPositionFeel(hGaugeComponent._info);
                 }
 
                 [HarmonyPrefix]
                 [HarmonyPatch(typeof(HScene), "Update")]
                 public static void PreUpdateHook()
                 {
-                    //If female can climax together
-                    if (hGaugeComponent.hScene.CtrlFlag.Feel_f >= 0.99f && HGaugeAndSpeedCtrl.ClimaxTFemale.Value && hGaugeComponent.hSceneSprite.CategoryFinish.GetActiveButton()[5])
-                    {
-                        hGaugeComponent.hSceneSprite.OnClickFinishSame();
-                        hGaugeComponent.maleFinishing = true;
-                    }
                     //If male can climax
-                    else if (hGaugeComponent.hScene.CtrlFlag.Feel_m >= 0.99f && HGaugeAndSpeedCtrl.ClimaxTMale.Value)
+                    if (hGaugeComponent.hScene.CtrlFlag.Feel_m >= 0.99f && HGaugeAndSpeedCtrl.ClimaxTMale.Value)
                     {
                         //Together
                         hGaugeComponent.buttonList = hGaugeComponent.hSceneSprite.CategoryFinish.GetActiveButton();
                         if (hGaugeComponent.hSceneSprite.CategoryFinish._houshiPosKind == 0)
                         {
-                            if (hGaugeComponent.buttonList[5])
-                                hGaugeComponent.hSceneSprite.OnClickFinishSame();
-                            else if (hGaugeComponent.buttonList[2])
-                                hGaugeComponent.hSceneSprite.OnClickFinishInSide();
-                            else if (hGaugeComponent.buttonList[1])
-                                hGaugeComponent.hSceneSprite.OnClickFinishOutSide();
+                            if (hGaugeComponent.buttonList[priority[0]])
+                                priorityDictionary[priority[0]]();
+                            else if (hGaugeComponent.buttonList[priority[1]])
+                                priorityDictionary[priority[1]]();
+                            else if (hGaugeComponent.buttonList[priority[2]])
+                                priorityDictionary[priority[2]]();
                         }
                         //Alone
                         else if (hGaugeComponent.hSceneSprite.CategoryFinish._houshiPosKind == 1)
                         {
-                            if (hGaugeComponent.buttonList[3])
-                                hGaugeComponent.hSceneSprite.OnClickFinishDrink();
-                            else if (hGaugeComponent.buttonList[4])
-                                hGaugeComponent.hSceneSprite.OnClickFinishVomit();
-                            else if (hGaugeComponent.buttonList[1])
-                                hGaugeComponent.hSceneSprite.OnClickFinishOutSide();
+                            if (hGaugeComponent.buttonList[priorityHoushi[0]])
+                                priorityDictionary[priorityHoushi[0]]();
+                            else if (hGaugeComponent.buttonList[priorityHoushi[1]])
+                                priorityDictionary[priorityHoushi[1]]();
+                            else if (hGaugeComponent.buttonList[priorityHoushi[2]])
+                                priorityDictionary[priorityHoushi[2]]();
                         }
-                        hGaugeComponent.maleFinishing = true;
                     }
-                }
-
-                [HarmonyPrefix]
-                [HarmonyPatch(typeof(HScene), "LateUpdate")]
-                public static void LateUpdateHook()
-                {
-                    //If male is finishing stop gauge hit and reset gauge
-                    if (hGaugeComponent.hScene.CtrlFlag.NowOrgasm == true && hGaugeComponent.maleFinishing == true)
-                    {
-                        hGaugeComponent.hScene.CtrlFlag.IsGaugeHit = false;
-                        hGaugeComponent.hScene.CtrlFlag.IsGaugeHit_M = false;
-                        hGaugeComponent.hScene.CtrlFlag.Feel_m = 0f;
-                    }
-                    //Reset bool when male orgasm is over
-                    else if (hGaugeComponent.hScene.CtrlFlag.NowOrgasm == false && hGaugeComponent.maleFinishing == true)
-                        hGaugeComponent.maleFinishing = false;
-                }
-
-                [HarmonyPrefix]
-                [HarmonyPatch(typeof(Sonyu), "SetAnimationParamater")]
-                [HarmonyPatch(typeof(Aibu), "SetAnimationParamater")]
-                [HarmonyPatch(typeof(Houshi), "SetAnimationParamater")]
-                [HarmonyPatch(typeof(MultiPlay_F1M2), "SetAnimationParamater")]
-                [HarmonyPatch(typeof(MultiPlay_F2M1), "SetAnimationParamater")]
-                [HarmonyPatch(typeof(Les), "SetAnimationParamater")]
-                [HarmonyPatch(typeof(Masturbation), "SetAnimationParamater")]
-                public static void SetAnimationParamaterHook()
-                {
-                    if (hGaugeComponent.clickChangeSpeed == true)
-                        if (HGaugeAndSpeedCtrl.KeyO.Value)
-                        {
-                            if (hGaugeComponent.isMasturbation)
-                            {
-                                if (hGaugeComponent.hScene.CtrlFlag.Speed > 0.5f)
-                                    hGaugeComponent.hScene.CtrlFlag.Speed = 0f;
-                                else hGaugeComponent.hScene.CtrlFlag.Speed = 1f;
-                            }
-                            else
-                            {
-                                switch (hGaugeComponent.hScene.CtrlFlag.LoopType)
-                                {
-                                    case 0:
-                                        hGaugeComponent.hScene.CtrlFlag.Speed += 1.001f;
-                                        break;
-                                    case 1:
-                                        hGaugeComponent.hScene.CtrlFlag.Speed -= 1.001f;
-                                        break;
-                                    case 2:
-                                        if (hGaugeComponent.hScene.CtrlFlag.Speed > 0.5f)
-                                            hGaugeComponent.hScene.CtrlFlag.Speed = 0f;
-                                        else
-                                            hGaugeComponent.hScene.CtrlFlag.Speed = 1f;
-                                        break;
-                                }
-                            }
-                        }
+                    //If female can climax together
+                    else if (hGaugeComponent.hScene.CtrlFlag.Feel_f >= 0.99f && HGaugeAndSpeedCtrl.ClimaxTFemale.Value && hGaugeComponent.hSceneSprite.CategoryFinish.GetActiveButton()[5])
+                        hGaugeComponent.hSceneSprite.OnClickFinishSame();
                 }
 
                 [HarmonyPostfix]
                 [HarmonyPatch(typeof(HSceneSprite), "OnClickStopFeel")]
                 public static void OnClickStopFeelHook()
                 {
+                    //Update gauge OnClickStopFeel
                     hGaugeComponent.fFeelAnimationProc = hGaugeComponent.fFeelAnimationShouldProc();
                     hGaugeComponent.mFeelAnimationProc = hGaugeComponent.mFeelAnimationShouldProc();
                 }
@@ -478,16 +558,17 @@ namespace HC_HGaugeAndSpeedCtrl
                 [HarmonyPatch(typeof(HSceneSprite), "OnClickFinishBefore")]
                 public static bool OnClickFinishBeforeHook()
                 {
+                    //Checks modifier keys when clicking on finish button, and sets gauge
                     if (HGaugeAndSpeedCtrl.KeyO.Value)
                         if (Input.GetKey(KeyCode.LeftShift))
                         {
-                            if (hGaugeComponent.hScene.CtrlFlag.Feel_m < 0.75 && hGaugeComponent.mFeelAnimation)
+                            if (hGaugeComponent.mFeelAnimation && hGaugeComponent.hScene.CtrlFlag.Feel_m < 0.75)
                                 hGaugeComponent.hScene.CtrlFlag.Feel_m = 0.75f;
                             return false;
                         }
                         if (Input.GetKey(KeyCode.LeftControl))
                         {
-                            if (hGaugeComponent.hScene.CtrlFlag.Feel_f < 0.75 && hGaugeComponent.fFeelAnimation)
+                            if (hGaugeComponent.fFeelAnimation && hGaugeComponent.hScene.CtrlFlag.Feel_f < 0.75)
                                 hGaugeComponent.hScene.CtrlFlag.Feel_f = 0.75f;
                             return false;
                         }
@@ -526,9 +607,10 @@ namespace HC_HGaugeAndSpeedCtrl
                 public static void HScenePreOnDestroy()
                 {
                     //Reset variables by destroying component
-                    Destroy(HGaugeAndSpeedCtrl.hGaugeComponent);
+                    GameObject.Destroy(HGaugeAndSpeedCtrl.hGaugeComponent);
                 }
             }
         }
     }
+
 }
